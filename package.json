@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
-    "@expo-google-fonts/bricolage-grotesque": "^0.2.3",
-    "@expo-google-fonts/hanken-grotesk": "^0.2.3",
+    "@expo-google-fonts/bricolage-grotesque": "^0.4.1",
+    "@expo-google-fonts/hanken-grotesk": "^0.4.3",
     "@react-native-async-storage/async-storage": "2.1.0",
     "expo": "~52.0.36",
     "expo-constants": "~17.0.3",
