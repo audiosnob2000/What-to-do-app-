@@ -27,22 +27,21 @@ export function HomeScreen({ location, radius, setRadius, onOpenLocation, onUseG
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.greeting}>
-        <Text style={styles.hello}>Good afternoon 👋</Text>
-        <Text style={styles.h1}>What's going on{'
-'}near you?</Text>
+        <Text style={styles.hello}>Good afternoon</Text>
+        <Text style={styles.h1}>{"What's going on\nnear you?"}</Text>
       </View>
 
       <View style={styles.locRow}>
         <Pressable style={styles.locPill} onPress={onOpenLocation}>
-          <Text style={styles.locIc}>📍</Text>
+          <Text style={styles.locIc}>{"📍"}</Text>
           <View style={{ flex: 1 }}>
             <Text style={styles.locLabel}>{location.viaGps ? 'CURRENT LOCATION' : 'LOCATION'}</Text>
             <Text style={styles.locVal}>{location.label}</Text>
           </View>
-          <Text style={styles.locChev}>▾</Text>
+          <Text style={styles.locChev}>{"▾"}</Text>
         </Pressable>
         <Pressable style={[styles.gpsBtn, gpsLoading && styles.gpsBtnLoading]} onPress={onUseGps}>
-          {gpsLoading ? <ActivityIndicator size="small" color={Colors.brandInk} /> : <Text style={styles.gpsBtnText}>◎</Text>}
+          {gpsLoading ? <ActivityIndicator size="small" color={Colors.brandInk} /> : <Text style={styles.gpsBtnText}>{"◎"}</Text>}
         </Pressable>
       </View>
 
