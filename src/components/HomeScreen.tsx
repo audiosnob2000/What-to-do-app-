@@ -1,11 +1,17 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { CATEGORIES, EVENTS, CAT_MAP } from '../data';
 import { PhotoPlaceholder } from './PhotoPlaceholder';
 import { Colors, Radii, Shadows, Spacing } from '../theme/tokens';
 import { LocationState } from '../hooks/useAppState';
+
+let LinearGradient: any;
+try {
+  LinearGradient = require('expo-linear-gradient').LinearGradient;
+} catch (e) {
+  LinearGradient = null;
+}
 
 interface Props {
   location: LocationState;
@@ -73,10 +79,14 @@ export function HomeScreen({ location, radius, setRadius, onOpenLocation, onUseG
       <View style={styles.catGrid}>
         {CATEGORIES.map(c => {
           const n = counts[c.id] || 0;
+          const GradientOrView = (Platform.OS === 'web' || !LinearGradient) ? View : LinearGradient;
+          const gradientProps = (Platform.OS === 'web' || !LinearGradient)
+            ? { style: [styles.catCardGradient, { backgroundColor: c.g1 }] }
+            : { colors: [c.g1, c.g2], start: { x: 0.1, y: 0 }, end: { x: 1, y: 1 }, style: styles.catCardGradient };
           return (
             <Pressable key={c.id} style={({ pressed }) => [styles.catCard, pressed && { transform: [{ scale: 0.97 }] }]}
               onPress={() => router.push({ pathname: '/category', params: { catId: c.id } })}>
-              <LinearGradient colors={[c.g1, c.g2]} start={{ x: 0.1, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+              <GradientOrView {...gradientProps} />
               <Text style={styles.catGlyph}>{c.glyph}</Text>
               <Text style={styles.catName}>{c.name}</Text>
               <View style={[styles.catCount, n === 0 && styles.catCountNone]}>
@@ -155,6 +165,7 @@ const styles = StyleSheet.create({
   secHeadText: { fontFamily: 'BricolageGrotesque_700Bold', fontSize: 21, color: Colors.ink, letterSpacing: -0.3 },
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.gridGap, paddingHorizontal: Spacing.screenH },
   catCard: { width: '47.5%', minHeight: 116, borderRadius: Radii.card, overflow: 'hidden', padding: 16, justifyContent: 'flex-end', ...Shadows.card },
+  catCardGradient: { ...StyleSheet.absoluteFillObject },
   catGlyph: { position: 'absolute', top: -6, right: -2, fontSize: 58, opacity: 0.9 },
   catName: { fontFamily: 'BricolageGrotesque_700Bold', fontSize: 18, color: '#fff', lineHeight: 20, zIndex: 2 },
   catCount: { marginTop: 5, alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.26)' },

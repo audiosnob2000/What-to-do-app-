@@ -1,7 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { CAT_MAP, CategoryId } from '../data';
+
+let LinearGradient: any;
+try {
+  LinearGradient = require('expo-linear-gradient').LinearGradient;
+} catch (e) {
+  LinearGradient = null;
+}
 
 interface Props {
   catId: CategoryId;
@@ -12,6 +18,16 @@ interface Props {
 
 export function PhotoPlaceholder({ catId, glyphSize = 40, style, children }: Props) {
   const cat = CAT_MAP[catId];
+
+  if (Platform.OS === 'web' || !LinearGradient) {
+    return (
+      <View style={[styles.container, { backgroundColor: cat.g1 }, style]}>
+        <Text style={[styles.glyph, { fontSize: glyphSize }]}>{cat.glyph}</Text>
+        {children}
+      </View>
+    );
+  }
+
   return (
     <LinearGradient
       colors={[cat.g1, cat.g2]}
