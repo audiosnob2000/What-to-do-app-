@@ -1,13 +1,14 @@
 import React from 'react';
 import {
   View, Text, ScrollView, Pressable, StyleSheet,
-  ActivityIndicator,
+  ActivityIndicator, Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { CATEGORIES, EVENTS, CAT_MAP } from '../data';
 import { PhotoPlaceholder } from './PhotoPlaceholder';
 import { Colors, Radii, Shadows, Spacing } from '../theme/tokens';
 import { LocationState } from '../hooks/useAppState';
+import { useLiveEvents } from '../hooks/useLiveEvents';
 
 interface Props {
   location: LocationState;
@@ -18,10 +19,13 @@ interface Props {
   gpsLoading: boolean;
   saved: number[];
   toggleSave: (id: number) => void;
+  userLat?: number;
+  userLng?: number;
 }
 
 export function HomeScreen({
   location, radius, setRadius, onOpenLocation, onUseGps, gpsLoading, saved, toggleSave,
+  userLat = 40.9232, userLng = -72.9382,
 }: Props) {
   const counts: Record<string, number> = {};
   CATEGORIES.forEach(c => {
@@ -33,12 +37,17 @@ export function HomeScreen({
     .sort((a, b) => a.dist - b.dist)
     .slice(0, 6);
 
+  const { events: liveEvents, loading: liveLoading, error: liveError } = useLiveEvents(userLat, userLng, radius);
+
   const pct = ((radius - 1) / (50 - 1)) * 100;
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.greeting}>
-        <Text style={styles.hello}>Good afternoon 👋</Text>
+        <Text style={styles.hello}>{greeting} 👋</Text>
         <Text style={styles.h1}>{"What's going on\nnear you?"}</Text>
       </View>
 
@@ -84,6 +93,55 @@ export function HomeScreen({
         </View>
       </View>
 
+      {/* Live Events from Ticketmaster */}
+      <View style={styles.secHead}>
+        <Text style={styles.secHeadText}>Live events near you</Text>
+        {liveEvents.length > 0 && <Text style={styles.secCount}>{liveEvents.length} found</Text>}
+      </View>
+      {liveLoading ? (
+        <View style={styles.liveLoadWrap}>
+          <ActivityIndicator size="small" color={Colors.brand} />
+          <Text style={styles.liveLoadText}>Finding events…</Text>
+        </View>
+      ) : liveError ? (
+        <View style={styles.liveLoadWrap}>
+          <Text style={styles.liveErrorText}>Could not load live events</Text>
+        </View>
+      ) : liveEvents.length === 0 ? (
+        <View style={styles.liveLoadWrap}>
+          <Text style={styles.liveLoadText}>No events found in this area</Text>
+        </View>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          style={styles.rail} contentContainerStyle={{ gap: 14, paddingHorizontal: Spacing.screenH }}>
+          {liveEvents.slice(0, 12).map(ev => {
+            const cat = CAT_MAP[ev.cat];
+            return (
+              <Pressable key={ev.id} style={styles.liveCard} onPress={() => Linking.openURL(ev.url)}>
+                <View style={[styles.liveCardTop, { backgroundColor: cat.g1 }]}>
+                  <Text style={styles.liveCardGlyph}>{cat.glyph}</Text>
+                  <View style={[styles.liveBadge, { backgroundColor: cat.color }]}>
+                    <Text style={styles.liveBadgeText}>{cat.name}</Text>
+                  </View>
+                  {ev.price !== null && (
+                    <View style={styles.livePriceBadge}>
+                      <Text style={styles.livePriceText}>{ev.price === 0 ? 'Free' : `From $${Math.round(ev.price)}`}</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.liveCardBody}>
+                  <Text style={styles.liveCardTitle} numberOfLines={2}>{ev.title}</Text>
+                  <Text style={styles.liveCardVenue} numberOfLines={1}>{ev.venue}</Text>
+                  <Text style={styles.liveCardDay}>{ev.day}</Text>
+                  {ev.dist !== null && <Text style={styles.liveCardDist}>{ev.dist.toFixed(1)} mi away</Text>}
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* Category Grid */}
       <View style={styles.secHead}>
         <Text style={styles.secHeadText}>What are you in the mood for?</Text>
       </View>
@@ -106,6 +164,7 @@ export function HomeScreen({
         })}
       </View>
 
+      {/* Featured local events */}
       {featured.length > 0 && (
         <>
           <View style={styles.secHead}>
@@ -175,8 +234,25 @@ const styles = StyleSheet.create({
   sliderBtnTextOn: { color: '#fff' },
   scaleMarks: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   scaleMark: { fontSize: 11, color: Colors.muted, fontWeight: '600' },
-  secHead: { paddingHorizontal: Spacing.screenH, paddingTop: 22, paddingBottom: 12 },
+  secHead: { flexDirection: 'row', alignItems: 'baseline', gap: 8, paddingHorizontal: Spacing.screenH, paddingTop: 22, paddingBottom: 12 },
   secHeadText: { fontFamily: 'BricolageGrotesque_700Bold', fontSize: 21, color: Colors.ink, letterSpacing: -0.3 },
+  secCount: { fontSize: 13, fontWeight: '600', color: Colors.muted },
+  liveLoadWrap: { paddingHorizontal: Spacing.screenH, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  liveLoadText: { fontSize: 14, color: Colors.muted },
+  liveErrorText: { fontSize: 14, color: '#E0204F' },
+  rail: { marginTop: 4 },
+  liveCard: { width: 220, backgroundColor: Colors.surface, borderRadius: Radii.card, overflow: 'hidden', ...Shadows.card },
+  liveCardTop: { height: 110, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  liveCardGlyph: { fontSize: 48, opacity: 0.7 },
+  liveBadge: { position: 'absolute', top: 8, left: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  liveBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  livePriceBadge: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  livePriceText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  liveCardBody: { padding: 10 },
+  liveCardTitle: { fontFamily: 'BricolageGrotesque_700Bold', fontSize: 15, color: Colors.ink, lineHeight: 18, marginBottom: 4 },
+  liveCardVenue: { fontSize: 12, color: Colors.muted, fontWeight: '600', marginBottom: 2 },
+  liveCardDay: { fontSize: 12, color: Colors.ink2, fontWeight: '600', marginBottom: 2 },
+  liveCardDist: { fontSize: 11, color: Colors.muted },
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.gridGap, paddingHorizontal: Spacing.screenH },
   catCard: { width: '47.5%', minHeight: 116, borderRadius: Radii.card, overflow: 'hidden', padding: 16, justifyContent: 'flex-end', ...Shadows.card },
   catGlyph: { position: 'absolute', top: -6, right: -2, fontSize: 58, opacity: 0.9 },
@@ -184,7 +260,6 @@ const styles = StyleSheet.create({
   catCount: { marginTop: 5, alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.26)' },
   catCountNone: { backgroundColor: 'rgba(0,0,0,0.16)' },
   catCountText: { fontSize: 12.5, fontWeight: '600', color: '#fff' },
-  rail: { marginTop: 4 },
   featCard: { width: 230, backgroundColor: Colors.surface, borderRadius: Radii.card, overflow: 'hidden', ...Shadows.card },
   featPhoto: { height: 124, position: 'relative' },
   featBadge: { position: 'absolute', top: 10, left: 10, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
