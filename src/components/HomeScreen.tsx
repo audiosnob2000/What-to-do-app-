@@ -1,17 +1,13 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import {
+  View, Text, ScrollView, Pressable, StyleSheet,
+  TextInput, ActivityIndicator, Platform,
+} from 'react-native';
 import { router } from 'expo-router';
 import { CATEGORIES, EVENTS, CAT_MAP } from '../data';
 import { PhotoPlaceholder } from './PhotoPlaceholder';
 import { Colors, Radii, Shadows, Spacing } from '../theme/tokens';
 import { LocationState } from '../hooks/useAppState';
-
-let LinearGradient: any;
-try {
-  LinearGradient = require('expo-linear-gradient').LinearGradient;
-} catch (e) {
-  LinearGradient = null;
-}
 
 interface Props {
   location: LocationState;
@@ -24,33 +20,47 @@ interface Props {
   toggleSave: (id: number) => void;
 }
 
-export function HomeScreen({ location, radius, setRadius, onOpenLocation, onUseGps, gpsLoading, saved, toggleSave }: Props) {
+export function HomeScreen({
+  location, radius, setRadius, onOpenLocation, onUseGps, gpsLoading, saved, toggleSave,
+}: Props) {
   const counts: Record<string, number> = {};
-  CATEGORIES.forEach(c => { counts[c.id] = EVENTS.filter(e => e.cat === c.id && e.dist <= radius).length; });
-  const featured = EVENTS.filter(e => e.when === 'weekend' && e.dist <= radius).sort((a, b) => a.dist - b.dist).slice(0, 6);
+  CATEGORIES.forEach(c => {
+    counts[c.id] = EVENTS.filter(e => e.cat === c.id && e.dist <= radius).length;
+  });
+
+  const featured = EVENTS
+    .filter(e => e.when === 'weekend' && e.dist <= radius)
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, 6);
+
   const pct = ((radius - 1) / (50 - 1)) * 100;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      {/* Greeting */}
       <View style={styles.greeting}>
-        <Text style={styles.hello}>Good afternoon</Text>
+        <Text style={styles.hello}>Good afternoon 👋</Text>
         <Text style={styles.h1}>{"What's going on\nnear you?"}</Text>
       </View>
 
+      {/* Location Row */}
       <View style={styles.locRow}>
         <Pressable style={styles.locPill} onPress={onOpenLocation}>
-          <Text style={styles.locIc}>{"📍"}</Text>
+          <Text style={styles.locIc}>📍</Text>
           <View style={{ flex: 1 }}>
             <Text style={styles.locLabel}>{location.viaGps ? 'CURRENT LOCATION' : 'LOCATION'}</Text>
             <Text style={styles.locVal}>{location.label}</Text>
           </View>
-          <Text style={styles.locChev}>{"▾"}</Text>
+          <Text style={styles.locChev}>▾</Text>
         </Pressable>
         <Pressable style={[styles.gpsBtn, gpsLoading && styles.gpsBtnLoading]} onPress={onUseGps}>
-          {gpsLoading ? <ActivityIndicator size="small" color={Colors.brandInk} /> : <Text style={styles.gpsBtnText}>{"◎"}</Text>}
+          {gpsLoading
+            ? <ActivityIndicator size="small" color={Colors.brandInk} />
+            : <Text style={styles.gpsBtnText}>◎</Text>}
         </Pressable>
       </View>
 
+      {/* Radius Card */}
       <View style={styles.radiusCard}>
         <View style={styles.radiusTop}>
           <Text style={styles.radiusLabel}>Search radius</Text>
@@ -58,10 +68,14 @@ export function HomeScreen({ location, radius, setRadius, onOpenLocation, onUseG
         </View>
         <View style={styles.sliderTrack}>
           <View style={[styles.sliderFill, { width: `${pct}%` as any }]} />
+          <View style={styles.sliderThumbWrap}>
+            <View style={[styles.sliderThumb, { left: `${pct}%` as any, marginLeft: -13 }]} />
+          </View>
         </View>
         <View style={styles.sliderBtns}>
           {[1, 5, 10, 15, 25, 35, 50].map(v => (
-            <Pressable key={v} onPress={() => setRadius(v)} style={[styles.sliderBtn, radius === v && styles.sliderBtnOn]}>
+            <Pressable key={v} onPress={() => setRadius(v)}
+              style={[styles.sliderBtn, radius === v && styles.sliderBtnOn]}>
               <Text style={[styles.sliderBtnText, radius === v && styles.sliderBtnTextOn]}>{v}</Text>
             </Pressable>
           ))}
@@ -73,20 +87,23 @@ export function HomeScreen({ location, radius, setRadius, onOpenLocation, onUseG
         </View>
       </View>
 
+      {/* Category Grid */}
       <View style={styles.secHead}>
         <Text style={styles.secHeadText}>What are you in the mood for?</Text>
       </View>
       <View style={styles.catGrid}>
         {CATEGORIES.map(c => {
           const n = counts[c.id] || 0;
-          const GradientOrView = (Platform.OS === 'web' || !LinearGradient) ? View : LinearGradient;
-          const gradientProps = (Platform.OS === 'web' || !LinearGradient)
-            ? { style: [styles.catCardGradient, { backgroundColor: c.g1 }] }
-            : { colors: [c.g1, c.g2], start: { x: 0.1, y: 0 }, end: { x: 1, y: 1 }, style: styles.catCardGradient };
           return (
-            <Pressable key={c.id} style={({ pressed }) => [styles.catCard, pressed && { transform: [{ scale: 0.97 }] }]}
-              onPress={() => router.push({ pathname: '/category', params: { catId: c.id } })}>
-              <GradientOrView {...gradientProps} />
+            <Pressable
+              key={c.id}
+              style={({ pressed }) => [styles.catCard, pressed && { transform: [{ scale: 0.97 }] }]}
+              onPress={() => router.push({ pathname: '/category', params: { catId: c.id } })}
+            >
+              {Platform.OS === 'web'
+                ? <View style={[StyleSheet.absoluteFill, { backgroundColor: c.g1 }]} />
+                : (() => { const { LinearGradient } = require('expo-linear-gradient'); return <LinearGradient colors={[c.g1, c.g2]} start={{ x: 0.1, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />; })()
+              }
               <Text style={styles.catGlyph}>{c.glyph}</Text>
               <Text style={styles.catName}>{c.name}</Text>
               <View style={[styles.catCount, n === 0 && styles.catCountNone]}>
@@ -97,12 +114,14 @@ export function HomeScreen({ location, radius, setRadius, onOpenLocation, onUseG
         })}
       </View>
 
+      {/* Featured rail */}
       {featured.length > 0 && (
         <>
           <View style={styles.secHead}>
             <Text style={styles.secHeadText}>Happening this weekend</Text>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.rail} contentContainerStyle={{ gap: 14, paddingHorizontal: Spacing.screenH }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            style={styles.rail} contentContainerStyle={{ gap: 14, paddingHorizontal: Spacing.screenH }}>
             {featured.map(ev => {
               const cat = CAT_MAP[ev.cat];
               return (
@@ -114,7 +133,9 @@ export function HomeScreen({ location, radius, setRadius, onOpenLocation, onUseG
                       <Text style={styles.featBadgeText}>{cat.name}</Text>
                     </View>
                     <Pressable style={styles.featHeart} onPress={() => toggleSave(ev.id)} hitSlop={8}>
-                      <Text style={[styles.featHeartText, saved.includes(ev.id) && styles.heartOn]}>{saved.includes(ev.id) ? '♥' : '♡'}</Text>
+                      <Text style={[styles.featHeartText, saved.includes(ev.id) && styles.heartOn]}>
+                        {saved.includes(ev.id) ? '♥' : '♡'}
+                      </Text>
                     </Pressable>
                   </View>
                   <View style={styles.featBody}>
@@ -154,6 +175,8 @@ const styles = StyleSheet.create({
   radiusUnit: { fontSize: 13, fontWeight: '600', color: Colors.muted, fontFamily: 'HankenGrotesk_600SemiBold' },
   sliderTrack: { height: 8, backgroundColor: Colors.hair, borderRadius: 999, position: 'relative', marginBottom: 10 },
   sliderFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: Colors.brand, borderRadius: 999 },
+  sliderThumbWrap: { position: 'absolute', top: -9, left: 0, right: 0 },
+  sliderThumb: { position: 'absolute', width: 26, height: 26, borderRadius: 13, backgroundColor: '#fff', borderWidth: 5, borderColor: Colors.brand, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 6, elevation: 3 },
   sliderBtns: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   sliderBtn: { paddingHorizontal: 6, paddingVertical: 4, borderRadius: 8 },
   sliderBtnOn: { backgroundColor: Colors.brand },
@@ -165,7 +188,6 @@ const styles = StyleSheet.create({
   secHeadText: { fontFamily: 'BricolageGrotesque_700Bold', fontSize: 21, color: Colors.ink, letterSpacing: -0.3 },
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.gridGap, paddingHorizontal: Spacing.screenH },
   catCard: { width: '47.5%', minHeight: 116, borderRadius: Radii.card, overflow: 'hidden', padding: 16, justifyContent: 'flex-end', ...Shadows.card },
-  catCardGradient: { ...StyleSheet.absoluteFillObject },
   catGlyph: { position: 'absolute', top: -6, right: -2, fontSize: 58, opacity: 0.9 },
   catName: { fontFamily: 'BricolageGrotesque_700Bold', fontSize: 18, color: '#fff', lineHeight: 20, zIndex: 2 },
   catCount: { marginTop: 5, alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.26)' },
