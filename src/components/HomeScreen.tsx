@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   View, Text, ScrollView, Pressable, StyleSheet,
-  TextInput, ActivityIndicator, Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { CATEGORIES, EVENTS, CAT_MAP } from '../data';
@@ -37,13 +37,11 @@ export function HomeScreen({
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      {/* Greeting */}
       <View style={styles.greeting}>
         <Text style={styles.hello}>Good afternoon 👋</Text>
         <Text style={styles.h1}>{"What's going on\nnear you?"}</Text>
       </View>
 
-      {/* Location Row */}
       <View style={styles.locRow}>
         <Pressable style={styles.locPill} onPress={onOpenLocation}>
           <Text style={styles.locIc}>📍</Text>
@@ -60,7 +58,6 @@ export function HomeScreen({
         </Pressable>
       </View>
 
-      {/* Radius Card */}
       <View style={styles.radiusCard}>
         <View style={styles.radiusTop}>
           <Text style={styles.radiusLabel}>Search radius</Text>
@@ -87,7 +84,6 @@ export function HomeScreen({
         </View>
       </View>
 
-      {/* Category Grid */}
       <View style={styles.secHead}>
         <Text style={styles.secHeadText}>What are you in the mood for?</Text>
       </View>
@@ -97,13 +93,9 @@ export function HomeScreen({
           return (
             <Pressable
               key={c.id}
-              style={({ pressed }) => [styles.catCard, pressed && { transform: [{ scale: 0.97 }] }]}
+              style={({ pressed }) => [styles.catCard, { backgroundColor: c.g1 }, pressed && { transform: [{ scale: 0.97 }] }]}
               onPress={() => router.push({ pathname: '/category', params: { catId: c.id } })}
             >
-              {Platform.OS === 'web'
-                ? <View style={[StyleSheet.absoluteFill, { backgroundColor: c.g1 }]} />
-                : (() => { const { LinearGradient } = require('expo-linear-gradient'); return <LinearGradient colors={[c.g1, c.g2]} start={{ x: 0.1, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />; })()
-              }
               <Text style={styles.catGlyph}>{c.glyph}</Text>
               <Text style={styles.catName}>{c.name}</Text>
               <View style={[styles.catCount, n === 0 && styles.catCountNone]}>
@@ -114,7 +106,6 @@ export function HomeScreen({
         })}
       </View>
 
-      {/* Featured rail */}
       {featured.length > 0 && (
         <>
           <View style={styles.secHead}>
