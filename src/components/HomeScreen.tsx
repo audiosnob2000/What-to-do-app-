@@ -9,6 +9,7 @@ import { PhotoPlaceholder } from './PhotoPlaceholder';
 import { Colors, Radii, Shadows, Spacing } from '../theme/tokens';
 import { LocationState } from '../hooks/useAppState';
 import { useLiveEvents } from '../hooks/useLiveEvents';
+import { useEventbriteEvents } from '../hooks/useEventbriteEvents';
 
 interface Props {
   location: LocationState;
@@ -37,12 +38,42 @@ export function HomeScreen({
     .sort((a, b) => a.dist - b.dist)
     .slice(0, 6);
 
-  const { events: liveEvents, loading: liveLoading, error: liveError } = useLiveEvents(userLat, userLng, radius);
+  const { events: tmEvents, loading: tmLoading } = useLiveEvents(userLat, userLng, radius);
+  const { events: ebEvents, loading: ebLoading } = useEventbriteEvents(userLat, userLng, radius);
 
   const pct = ((radius - 1) / (50 - 1)) * 100;
-
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  function renderEventCard(ev: any, key: string) {
+    const cat = CAT_MAP[ev.cat];
+    return (
+      <Pressable key={key} style={styles.liveCard} onPress={() => ev.url && Linking.openURL(ev.url)}>
+        <View style={[styles.liveCardTop, { backgroundColor: cat.g1 }]}>
+          <Text style={styles.liveCardGlyph}>{cat.glyph}</Text>
+          <View style={[styles.liveBadge, { backgroundColor: cat.color }]}>
+            <Text style={styles.liveBadgeText}>{cat.name}</Text>
+          </View>
+          {ev.price !== null && ev.price !== undefined && (
+            <View style={styles.livePriceBadge}>
+              <Text style={styles.livePriceText}>{ev.price === 0 ? 'Free' : `From $${Math.round(ev.price)}`}</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.liveCardBody}>
+          <Text style={styles.liveCardTitle} numberOfLines={2}>{ev.title}</Text>
+          <Text style={styles.liveCardVenue} numberOfLines={1}>{ev.venue}</Text>
+          <Text style={styles.liveCardDay}>{ev.day}</Text>
+          {ev.dist != null && <Text style={styles.liveCardDist}>{ev.dist.toFixed(1)} mi away</Text>}
+        </View>
+      </Pressable>
+    );
+  }
+
+  const allLiveEvents = [
+    ...tmEvents.map(e => ({ ...e, source: 'tm' })),
+    ...ebEvents.map(e => ({ ...e, source: 'eb' })),
+  ].slice(0, 20);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -93,51 +124,24 @@ export function HomeScreen({
         </View>
       </View>
 
-      {/* Live Events from Ticketmaster */}
+      {/* Combined live events */}
       <View style={styles.secHead}>
         <Text style={styles.secHeadText}>Live events near you</Text>
-        {liveEvents.length > 0 && <Text style={styles.secCount}>{liveEvents.length} found</Text>}
+        {allLiveEvents.length > 0 && <Text style={styles.secCount}>{allLiveEvents.length} found</Text>}
       </View>
-      {liveLoading ? (
+      {(tmLoading || ebLoading) && allLiveEvents.length === 0 ? (
         <View style={styles.liveLoadWrap}>
           <ActivityIndicator size="small" color={Colors.brand} />
           <Text style={styles.liveLoadText}>Finding events…</Text>
         </View>
-      ) : liveError ? (
-        <View style={styles.liveLoadWrap}>
-          <Text style={styles.liveErrorText}>Could not load live events</Text>
-        </View>
-      ) : liveEvents.length === 0 ? (
+      ) : allLiveEvents.length === 0 ? (
         <View style={styles.liveLoadWrap}>
           <Text style={styles.liveLoadText}>No events found in this area</Text>
         </View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
           style={styles.rail} contentContainerStyle={{ gap: 14, paddingHorizontal: Spacing.screenH }}>
-          {liveEvents.slice(0, 12).map(ev => {
-            const cat = CAT_MAP[ev.cat];
-            return (
-              <Pressable key={ev.id} style={styles.liveCard} onPress={() => Linking.openURL(ev.url)}>
-                <View style={[styles.liveCardTop, { backgroundColor: cat.g1 }]}>
-                  <Text style={styles.liveCardGlyph}>{cat.glyph}</Text>
-                  <View style={[styles.liveBadge, { backgroundColor: cat.color }]}>
-                    <Text style={styles.liveBadgeText}>{cat.name}</Text>
-                  </View>
-                  {ev.price !== null && (
-                    <View style={styles.livePriceBadge}>
-                      <Text style={styles.livePriceText}>{ev.price === 0 ? 'Free' : `From $${Math.round(ev.price)}`}</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.liveCardBody}>
-                  <Text style={styles.liveCardTitle} numberOfLines={2}>{ev.title}</Text>
-                  <Text style={styles.liveCardVenue} numberOfLines={1}>{ev.venue}</Text>
-                  <Text style={styles.liveCardDay}>{ev.day}</Text>
-                  {ev.dist !== null && <Text style={styles.liveCardDist}>{ev.dist.toFixed(1)} mi away</Text>}
-                </View>
-              </Pressable>
-            );
-          })}
+          {allLiveEvents.map(ev => renderEventCard(ev, `${ev.source}-${ev.id}`))}
         </ScrollView>
       )}
 
@@ -164,7 +168,6 @@ export function HomeScreen({
         })}
       </View>
 
-      {/* Featured local events */}
       {featured.length > 0 && (
         <>
           <View style={styles.secHead}>
@@ -239,7 +242,6 @@ const styles = StyleSheet.create({
   secCount: { fontSize: 13, fontWeight: '600', color: Colors.muted },
   liveLoadWrap: { paddingHorizontal: Spacing.screenH, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
   liveLoadText: { fontSize: 14, color: Colors.muted },
-  liveErrorText: { fontSize: 14, color: '#E0204F' },
   rail: { marginTop: 4 },
   liveCard: { width: 220, backgroundColor: Colors.surface, borderRadius: Radii.card, overflow: 'hidden', ...Shadows.card },
   liveCardTop: { height: 110, alignItems: 'center', justifyContent: 'center', position: 'relative' },
