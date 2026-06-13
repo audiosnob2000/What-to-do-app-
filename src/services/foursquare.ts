@@ -35,7 +35,8 @@ export async function fetchFoursquarePlaces(
   const radiusMeters = Math.round(radiusMiles * 1609);
   const fsqCategoryId = CATEGORY_MAP[category];
 
-  const url = `${FSQ_BASE_URL}?ll=${lat},${lng}&radius=${radiusMeters}&categories=${fsqCategoryId}&limit=10&sort=DISTANCE`;
+  const targetUrl = `${FSQ_BASE_URL}?ll=${lat},${lng}&radius=${radiusMeters}&categories=${fsqCategoryId}&limit=10&sort=DISTANCE`;
+  const url = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
 
   const response = await fetch(url, {
     headers: {
