@@ -1,15 +1,14 @@
 import React from 'react';
 import {
   View, Text, ScrollView, Pressable, StyleSheet,
-  ActivityIndicator, Linking,
+  TextInput, ActivityIndicator, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { CATEGORIES, EVENTS, CAT_MAP } from '../data';
 import { PhotoPlaceholder } from './PhotoPlaceholder';
 import { Colors, Radii, Shadows, Spacing } from '../theme/tokens';
 import { LocationState } from '../hooks/useAppState';
-import { useLiveEvents } from '../hooks/useLiveEvents';
-import { useEventbriteEvents } from '../hooks/useEventbriteEvents';
+import { useFoursquarePlaces } from '../hooks/useFoursquarePlaces';
 
 interface Props {
   location: LocationState;
@@ -20,14 +19,20 @@ interface Props {
   gpsLoading: boolean;
   saved: number[];
   toggleSave: (id: number) => void;
-  userLat?: number;
-  userLng?: number;
 }
+
+// Rocky Point, NY default coordinates
+const DEFAULT_LAT = 40.9387;
+const DEFAULT_LNG = -72.9268;
 
 export function HomeScreen({
   location, radius, setRadius, onOpenLocation, onUseGps, gpsLoading, saved, toggleSave,
-  userLat = 40.9232, userLng = -72.9382,
 }: Props) {
+  const userLat = location.lat ?? DEFAULT_LAT;
+  const userLng = location.lng ?? DEFAULT_LNG;
+
+  const { places: fsqPlaces, loading: fsqLoading } = useFoursquarePlaces(userLat, userLng, radius, 'food');
+
   const counts: Record<string, number> = {};
   CATEGORIES.forEach(c => {
     counts[c.id] = EVENTS.filter(e => e.cat === c.id && e.dist <= radius).length;
@@ -38,50 +43,17 @@ export function HomeScreen({
     .sort((a, b) => a.dist - b.dist)
     .slice(0, 6);
 
-  const { events: tmEvents, loading: tmLoading } = useLiveEvents(userLat, userLng, radius);
-  const { events: ebEvents, loading: ebLoading } = useEventbriteEvents(userLat, userLng, radius);
-
   const pct = ((radius - 1) / (50 - 1)) * 100;
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-
-  function renderEventCard(ev: any, key: string) {
-    const cat = CAT_MAP[ev.cat];
-    return (
-      <Pressable key={key} style={styles.liveCard} onPress={() => ev.url && Linking.openURL(ev.url)}>
-        <View style={[styles.liveCardTop, { backgroundColor: cat.g1 }]}>
-          <Text style={styles.liveCardGlyph}>{cat.glyph}</Text>
-          <View style={[styles.liveBadge, { backgroundColor: cat.color }]}>
-            <Text style={styles.liveBadgeText}>{cat.name}</Text>
-          </View>
-          {ev.price !== null && ev.price !== undefined && (
-            <View style={styles.livePriceBadge}>
-              <Text style={styles.livePriceText}>{ev.price === 0 ? 'Free' : `From $${Math.round(ev.price)}`}</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.liveCardBody}>
-          <Text style={styles.liveCardTitle} numberOfLines={2}>{ev.title}</Text>
-          <Text style={styles.liveCardVenue} numberOfLines={1}>{ev.venue}</Text>
-          <Text style={styles.liveCardDay}>{ev.day}</Text>
-          {ev.dist != null && <Text style={styles.liveCardDist}>{ev.dist.toFixed(1)} mi away</Text>}
-        </View>
-      </Pressable>
-    );
-  }
-
-  const allLiveEvents = [
-    ...tmEvents.map(e => ({ ...e, source: 'tm' })),
-    ...ebEvents.map(e => ({ ...e, source: 'eb' })),
-  ].slice(0, 20);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      {/* Greeting */}
       <View style={styles.greeting}>
-        <Text style={styles.hello}>{greeting} 👋</Text>
-        <Text style={styles.h1}>{"What's going on\nnear you?"}</Text>
+        <Text style={styles.hello}>Good afternoon 👋</Text>
+        <Text style={styles.h1}>What's going on{'\n'}near you?</Text>
       </View>
 
+      {/* Location Row */}
       <View style={styles.locRow}>
         <Pressable style={styles.locPill} onPress={onOpenLocation}>
           <Text style={styles.locIc}>📍</Text>
@@ -98,11 +70,13 @@ export function HomeScreen({
         </Pressable>
       </View>
 
+      {/* Radius Card */}
       <View style={styles.radiusCard}>
         <View style={styles.radiusTop}>
           <Text style={styles.radiusLabel}>Search radius</Text>
           <Text style={styles.radiusVal}>{radius} <Text style={styles.radiusUnit}>{radius === 1 ? 'mile' : 'miles'}</Text></Text>
         </View>
+        {/* Simple slider replacement using text buttons since RN Slider needs separate pkg */}
         <View style={styles.sliderTrack}>
           <View style={[styles.sliderFill, { width: `${pct}%` as any }]} />
           <View style={styles.sliderThumbWrap}>
@@ -124,27 +98,6 @@ export function HomeScreen({
         </View>
       </View>
 
-      {/* Combined live events */}
-      <View style={styles.secHead}>
-        <Text style={styles.secHeadText}>Live events near you</Text>
-        {allLiveEvents.length > 0 && <Text style={styles.secCount}>{allLiveEvents.length} found</Text>}
-      </View>
-      {(tmLoading || ebLoading) && allLiveEvents.length === 0 ? (
-        <View style={styles.liveLoadWrap}>
-          <ActivityIndicator size="small" color={Colors.brand} />
-          <Text style={styles.liveLoadText}>Finding events…</Text>
-        </View>
-      ) : allLiveEvents.length === 0 ? (
-        <View style={styles.liveLoadWrap}>
-          <Text style={styles.liveLoadText}>No events found in this area</Text>
-        </View>
-      ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          style={styles.rail} contentContainerStyle={{ gap: 14, paddingHorizontal: Spacing.screenH }}>
-          {allLiveEvents.map(ev => renderEventCard(ev, `${ev.source}-${ev.id}`))}
-        </ScrollView>
-      )}
-
       {/* Category Grid */}
       <View style={styles.secHead}>
         <Text style={styles.secHeadText}>What are you in the mood for?</Text>
@@ -155,9 +108,13 @@ export function HomeScreen({
           return (
             <Pressable
               key={c.id}
-              style={({ pressed }) => [styles.catCard, { backgroundColor: c.g1 }, pressed && { transform: [{ scale: 0.97 }] }]}
+              style={({ pressed }) => [styles.catCard, pressed && { transform: [{ scale: 0.97 }] }]}
               onPress={() => router.push({ pathname: '/category', params: { catId: c.id } })}
             >
+              {Platform.OS === 'web'
+                ? <View style={[StyleSheet.absoluteFill, { backgroundColor: c.g1 }]} />
+                : (() => { const { LinearGradient } = require('expo-linear-gradient'); return <LinearGradient colors={[c.g1, c.g2]} start={{ x: 0.1, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />; })()
+              }
               <Text style={styles.catGlyph}>{c.glyph}</Text>
               <Text style={styles.catName}>{c.name}</Text>
               <View style={[styles.catCount, n === 0 && styles.catCountNone]}>
@@ -168,6 +125,7 @@ export function HomeScreen({
         })}
       </View>
 
+      {/* Featured rail */}
       {featured.length > 0 && (
         <>
           <View style={styles.secHead}>
@@ -199,6 +157,35 @@ export function HomeScreen({
               );
             })}
           </ScrollView>
+        </>
+      )}
+      {/* Live events near you from Foursquare */}
+      {(fsqLoading || fsqPlaces.length > 0) && (
+        <>
+          <View style={styles.secHead}>
+            <Text style={styles.secHeadText}>Live events near you</Text>
+            {fsqLoading && <ActivityIndicator size="small" color={Colors.brand} style={{ marginTop: 4 }} />}
+          </View>
+          <View style={styles.liveList}>
+            {fsqPlaces.slice(0, 6).map((place) => (
+              <View key={`fsq-home-${place.id}-${place.title}`} style={styles.liveCard}>
+                <View style={styles.liveCardHeader}>
+                  <Text style={styles.liveCardTitle} numberOfLines={2}>{place.title}</Text>
+                  <View style={styles.liveBadge}>
+                    <Text style={styles.liveBadgeText}>LIVE</Text>
+                  </View>
+                </View>
+                {place.venue ? <Text style={styles.liveCardVenue} numberOfLines={1}>{place.venue}</Text> : null}
+                <View style={styles.liveCardMeta}>
+                  <Text style={styles.liveCardMetaText}>{place.day}</Text>
+                  {place.dist > 0 && (
+                    <Text style={styles.liveCardMetaText}> · {place.dist.toFixed(1)} mi</Text>
+                  )}
+                  {place.about ? <Text style={styles.liveCardMetaText}> · {place.about}</Text> : null}
+                </View>
+              </View>
+            ))}
+          </View>
         </>
       )}
       <View style={{ height: 20 }} />
@@ -237,24 +224,8 @@ const styles = StyleSheet.create({
   sliderBtnTextOn: { color: '#fff' },
   scaleMarks: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   scaleMark: { fontSize: 11, color: Colors.muted, fontWeight: '600' },
-  secHead: { flexDirection: 'row', alignItems: 'baseline', gap: 8, paddingHorizontal: Spacing.screenH, paddingTop: 22, paddingBottom: 12 },
+  secHead: { paddingHorizontal: Spacing.screenH, paddingTop: 22, paddingBottom: 12 },
   secHeadText: { fontFamily: 'BricolageGrotesque_700Bold', fontSize: 21, color: Colors.ink, letterSpacing: -0.3 },
-  secCount: { fontSize: 13, fontWeight: '600', color: Colors.muted },
-  liveLoadWrap: { paddingHorizontal: Spacing.screenH, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  liveLoadText: { fontSize: 14, color: Colors.muted },
-  rail: { marginTop: 4 },
-  liveCard: { width: 220, backgroundColor: Colors.surface, borderRadius: Radii.card, overflow: 'hidden', ...Shadows.card },
-  liveCardTop: { height: 110, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  liveCardGlyph: { fontSize: 48, opacity: 0.7 },
-  liveBadge: { position: 'absolute', top: 8, left: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  liveBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  livePriceBadge: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  livePriceText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  liveCardBody: { padding: 10 },
-  liveCardTitle: { fontFamily: 'BricolageGrotesque_700Bold', fontSize: 15, color: Colors.ink, lineHeight: 18, marginBottom: 4 },
-  liveCardVenue: { fontSize: 12, color: Colors.muted, fontWeight: '600', marginBottom: 2 },
-  liveCardDay: { fontSize: 12, color: Colors.ink2, fontWeight: '600', marginBottom: 2 },
-  liveCardDist: { fontSize: 11, color: Colors.muted },
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.gridGap, paddingHorizontal: Spacing.screenH },
   catCard: { width: '47.5%', minHeight: 116, borderRadius: Radii.card, overflow: 'hidden', padding: 16, justifyContent: 'flex-end', ...Shadows.card },
   catGlyph: { position: 'absolute', top: -6, right: -2, fontSize: 58, opacity: 0.9 },
@@ -262,6 +233,7 @@ const styles = StyleSheet.create({
   catCount: { marginTop: 5, alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.26)' },
   catCountNone: { backgroundColor: 'rgba(0,0,0,0.16)' },
   catCountText: { fontSize: 12.5, fontWeight: '600', color: '#fff' },
+  rail: { marginTop: 4 },
   featCard: { width: 230, backgroundColor: Colors.surface, borderRadius: Radii.card, overflow: 'hidden', ...Shadows.card },
   featPhoto: { height: 124, position: 'relative' },
   featBadge: { position: 'absolute', top: 10, left: 10, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
@@ -272,4 +244,54 @@ const styles = StyleSheet.create({
   featBody: { padding: 11 },
   featTitle: { fontFamily: 'BricolageGrotesque_700Bold', fontSize: 16, color: Colors.ink, lineHeight: 19 },
   featMeta: { fontSize: 12.5, color: Colors.muted, fontWeight: '600', marginTop: 4 },
+  liveList: { gap: 12, paddingHorizontal: Spacing.screenH },
+  liveCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.cardSm,
+    borderWidth: 1.5,
+    borderColor: Colors.hair,
+    padding: 14,
+    ...Shadows.cardSm,
+  },
+  liveCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  liveCardTitle: {
+    flex: 1,
+    fontFamily: 'BricolageGrotesque_700Bold',
+    fontSize: 15,
+    color: Colors.ink,
+    lineHeight: 19,
+  },
+  liveBadge: {
+    backgroundColor: Colors.brand,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  liveBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  liveCardVenue: {
+    fontSize: 12.5,
+    color: Colors.ink2,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  liveCardMeta: {
+    flexDirection: 'row',
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  liveCardMetaText: {
+    fontSize: 12,
+    color: Colors.muted,
+    fontWeight: '600',
+  },
 });
