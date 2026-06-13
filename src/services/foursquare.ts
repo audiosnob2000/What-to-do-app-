@@ -12,7 +12,7 @@ export interface LiveEvent {
   source: 'fsq';
 }
 
-const FSQ_API_KEY = 'HULIE4YNBVFPFCTQRTCF4OCQGQBU0FJ54155HHLKDZAER2C0';
+const FSQ_API_KEY = 'XT44YLQF2NF000EJ0OIUYLARSQNSNAGLT0NMJIJRWGA3XOHS';
 const FSQ_BASE_URL = 'https://api.foursquare.com/v3/places/search';
 
 const CATEGORY_MAP: Record<CategoryId, number> = {
